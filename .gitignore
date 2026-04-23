@@ -1,0 +1,52 @@
+# --- .NET Core / C# ---
+bin/
+obj/
+out/
+appsettings.Development.json
+*.user
+*.userosscache
+*.sln.doccache
+
+# --- Секрети та налаштування (важливо для безпеки) ---
+.pfx
+.certificate
+*.usersecrets
+.env
+
+# --- JetBrains Rider / Visual Studio ---
+.idea/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.doccache
+*.vsscc
+
+# --- VS Code ---
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# --- macOS (твій випадок) ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# --- Neovim / Vim (твій робочий інструмент) ---
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-v][a-z]
+[._]sw[a-p]
+*~
+*.un~
+Session.vim
+.netrwhist
+
+# --- Docker ---
+.dockerignore

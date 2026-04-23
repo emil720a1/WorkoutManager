@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WorkoutManager.API/WorkoutManager.API.csproj" />
+    <Project Path="src/WorkoutManager.Application/WorkoutManager.Application.csproj" />
+    <Project Path="src/WorkoutManager.Domain/WorkoutManager.Domain.csproj" />
+    <Project Path="src/WorkoutManager.Infrastructure/WorkoutManager.Infrastructure.csproj" />
+  </Folder>
+</Solution>
