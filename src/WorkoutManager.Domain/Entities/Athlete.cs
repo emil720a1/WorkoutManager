@@ -9,6 +9,11 @@ public class Athlete : AggregateRoot
     public Guid? CurrentProgramId { get; private set; }
     public TimeOnly NotificationTime { get; private set; }
 
+    private Athlete() : base(Guid.Empty)
+    {
+        Name = null!;
+    }
+
     public Athlete(long telegramId, string name) : base(Guid.NewGuid())
     {
         TelegramId = telegramId;

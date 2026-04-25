@@ -8,8 +8,13 @@ public class WorkoutDay : Entity
     public int DayNumber { get; private set; }
     public string Name { get; private set; }
     
-    private readonly List<Exercise> _exercises = new();
+    private readonly List<Exercise> _exercises = [];
     public IReadOnlyCollection<Exercise> Exercises => _exercises.AsReadOnly();
+
+    private WorkoutDay() : base(Guid.Empty)
+    {
+        Name = null!;
+    }
 
     public WorkoutDay(int dayNumber, string name) : base(Guid.NewGuid())
     {
