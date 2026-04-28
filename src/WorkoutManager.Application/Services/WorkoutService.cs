@@ -33,7 +33,7 @@ public class WorkoutService(IAthleteRepository athleteRepository, IProgramReposi
             .ToArray();
 
         var response = new WorkoutResponse(workoutDay.Name, [.. exerciseResponses]);
-        
+
         return Result<WorkoutResponse>.Success(response);
     }
 
