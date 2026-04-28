@@ -1,10 +1,11 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using WorkoutManager.Application.Interfaces;
 using WorkoutManager.Domain.Entities;
 
 namespace WorkoutManager.Infrastructure.Persistence;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     public DbSet<Athlete> Athletes => Set<Athlete>();
     public DbSet<Program> Programs => Set<Program>();

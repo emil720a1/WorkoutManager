@@ -1,3 +1,5 @@
+using System.Text;
+using Microsoft.EntityFrameworkCore;
 using WorkoutManager.Application.Common.Models;
 using WorkoutManager.Application.DTOs;
 using WorkoutManager.Application.Interfaces;
@@ -6,7 +8,10 @@ using WorkoutManager.Domain.Interfaces;
 
 namespace WorkoutManager.Application.Services;
 
-public class WorkoutService(IAthleteRepository athleteRepository, IProgramRepository programRepository) : IWorkoutService
+public class WorkoutService(
+    IAthleteRepository athleteRepository, 
+    IProgramRepository programRepository,
+    IApplicationDbContext dbContext) : IWorkoutService
 {
     public async Task<Result<WorkoutResponse>> GetCurrentWorkoutAsync(long telegramId)
     {
@@ -63,5 +68,48 @@ public class WorkoutService(IAthleteRepository athleteRepository, IProgramReposi
         athleteRepository.Update(athlete);
 
         return Result<bool>.Success(true);
+    }
+
+    public async Task<string> GetTodaysWorkoutAsync(long telegramId, CancellationToken cancellationToken)
+    {
+        var athlete = await dbContext.Athletes
+            .AsNoTracking()
+            .Where(a => a.TelegramId == telegramId)
+            .Select(a => new { a.CurrentProgramId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (athlete is null)
+            return "Атлета не знайдено. Зареєструйтесь через /start.";
+
+        if (athlete.CurrentProgramId is null)
+            return "У вас ще немає призначеної програми тренувань.";
+
+        // TODO: на місці логіки фільтрації по даті (як саме ми визначаємо "сьогодні" в базі — ще вирішується).
+        var dayNumber = (int)DateTime.Today.DayOfWeek;
+        dayNumber = dayNumber == 0 ? 7 : dayNumber;
+
+        var workout = await dbContext.WorkoutDays
+            .AsNoTracking()
+            .Where(w => EF.Property<Guid>(w, "ProgramId") == athlete.CurrentProgramId && w.DayNumber == dayNumber)
+            .Select(w => new 
+            { 
+                w.Name, 
+                Exercises = w.Exercises.Select(e => new { e.Name, Sets = e.Volume.Sets, Reps = e.Volume.Reps })
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (workout is null)
+            return "На сьогодні тренувань не заплановано. Відпочивайте!";
+
+        var sb = new StringBuilder(512);
+        sb.AppendLine($"*Тренування на сьогодні: {workout.Name}*");
+        sb.AppendLine();
+
+        foreach (var exercise in workout.Exercises)
+        {
+            sb.AppendLine($"*{exercise.Name}* — {exercise.Sets} підходів по {exercise.Reps} повторень");
+        }
+
+        return sb.ToString();
     }
 }

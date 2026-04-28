@@ -14,6 +14,8 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
+        services.AddScoped<WorkoutManager.Application.Interfaces.IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
+
         services.AddScoped<IAthleteRepository, AthleteRepository>();
         services.AddScoped<IProgramRepository, ProgramRepository>();
 

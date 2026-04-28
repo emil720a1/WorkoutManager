@@ -32,6 +32,10 @@ public class BotUpdateHandler(
             {
                 await HandleStartCommand(workoutService, message, cancellationToken);
             }
+            else if (text.StartsWith("/today"))
+            {
+                await HandleTodayCommand(workoutService, message, cancellationToken);
+            }
             else
             {
                 await botClient.SendMessage(chatId, "Невідома команда. Спробуй /start.", cancellationToken: cancellationToken);
@@ -62,5 +66,17 @@ public class BotUpdateHandler(
             : $"З поверненням, {name}! Ти вже зареєстрований(-а).";
 
         await botClient.SendMessage(message.Chat.Id, replyText, cancellationToken: cancellationToken);
+    }
+
+    private async Task HandleTodayCommand(IWorkoutService workoutService, Message message, CancellationToken cancellationToken)
+    {
+        var telegramId = message.From?.Id ?? message.Chat.Id;
+        var replyText = await workoutService.GetTodaysWorkoutAsync(telegramId, cancellationToken);
+
+        await botClient.SendMessage(
+            chatId: message.Chat.Id, 
+            text: replyText, 
+            parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown, 
+            cancellationToken: cancellationToken);
     }
 }

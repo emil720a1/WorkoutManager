@@ -8,4 +8,6 @@ public interface IWorkoutService
     Task<Result<WorkoutResponse>> GetCurrentWorkoutAsync(long telegramId);
     Task<Result<bool>> RegisterAthleteAsync(long telegramId, string name);
     Task<Result<bool>> AssignProgramAsync(long telegramId, Guid programId);
+    
+    Task<string> GetTodaysWorkoutAsync(long telegramId, CancellationToken cancellationToken);
 }
