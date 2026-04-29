@@ -1,6 +1,5 @@
 using WorkoutManager.Infrastructure;
 using WorkoutManager.Application;
-using WorkoutManager.API.Bot.Configuration;
 using WorkoutManager.API.Bot.Handlers;
 using WorkoutManager.API.Bot.Services;
 using Telegram.Bot;

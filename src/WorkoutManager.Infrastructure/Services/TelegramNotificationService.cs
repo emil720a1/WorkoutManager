@@ -9,6 +9,6 @@ public class TelegramNotificationService(ITelegramBotClient botClient) : INotifi
 {
     public async Task SendWorkoutReminderAsync(long telegramId, string message, CancellationToken ct)
     {
-        await botClient.SendTextMessageAsync(telegramId, message, cancellationToken: ct);
+        await botClient.SendMessage(telegramId, message, cancellationToken: ct);
     }
 }
