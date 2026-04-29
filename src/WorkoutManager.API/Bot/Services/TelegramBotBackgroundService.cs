@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
-using WorkoutManager.API.Bot.Configuration;
+using WorkoutManager.Application.Common.Options;
 using WorkoutManager.API.Bot.Handlers;
 
 namespace WorkoutManager.API.Bot.Services;

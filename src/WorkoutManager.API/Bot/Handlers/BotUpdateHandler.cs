@@ -4,13 +4,16 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using WorkoutManager.Application.Interfaces;
+using Microsoft.Extensions.Options;
+using WorkoutManager.Application.Common.Options;
 
 namespace WorkoutManager.API.Bot.Handlers;
 
 public class BotUpdateHandler(
     IServiceScopeFactory scopeFactory,
     ILogger<BotUpdateHandler> logger,
-    ITelegramBotClient botClient) : IBotUpdateHandler
+    ITelegramBotClient botClient,
+    IOptions<BotConfiguration> options) : IBotUpdateHandler
 {
     public async Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
     {
@@ -28,6 +31,12 @@ public class BotUpdateHandler(
 
         try 
         {
+            if (text.StartsWith("/set_program") && message.From?.Id != options.Value.AdminTelegramId)
+            {
+                await botClient.SendMessage(chatId, "Forbidden. Admin access only.", cancellationToken: cancellationToken);
+                return;
+            }
+
             if (text.StartsWith("/start"))
             {
                 await HandleStartCommand(workoutService, message, cancellationToken);

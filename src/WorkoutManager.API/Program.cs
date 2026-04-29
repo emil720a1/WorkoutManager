@@ -4,6 +4,9 @@ using WorkoutManager.API.Bot.Configuration;
 using WorkoutManager.API.Bot.Handlers;
 using WorkoutManager.API.Bot.Services;
 using Telegram.Bot;
+using Hangfire;
+using WorkoutManager.Infrastructure.BackgroundJobs;
+using WorkoutManager.Application.Common.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +27,13 @@ builder.Services.AddHostedService<TelegramBotBackgroundService>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+app.UseHangfireDashboard();
+
+RecurringJob.AddOrUpdate<MorningWorkoutJob>(
+    "MorningWorkoutReminder",
+    job => job.ExecuteAsync(CancellationToken.None),
+    "0 7 * * *");
 
 if (app.Environment.IsDevelopment())
 {
