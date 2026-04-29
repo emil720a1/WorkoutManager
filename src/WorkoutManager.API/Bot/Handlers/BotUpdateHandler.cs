@@ -9,6 +9,8 @@ using Telegram.Bot.Types.Enums;
 using WorkoutManager.Application.Common.Options;
 using WorkoutManager.Application.Enums;
 using WorkoutManager.Application.Interfaces;
+using WorkoutManager.Application.DTOs;
+using WorkoutManager.Application.Services;
 
 namespace WorkoutManager.API.Bot.Handlers;
 
@@ -57,8 +59,10 @@ public class BotUpdateHandler(
                     break;
 
                 case AdminDialogState.WaitingForAthleteTelegramId:
-                    if (long.TryParse(text, out _))
+                    if (long.TryParse(text, out var athleteId))
                     {
+                        var draft = new WorkoutDraft { AthleteId = athleteId };
+                        stateService.SetDraft(adminId, draft);
                         stateService.SetState(adminId, AdminDialogState.WaitingForDayOfWeek);
                         await botClient.SendMessage(chatId, "Enter Day of Week (1 for Monday, 7 for Sunday):", cancellationToken: cancellationToken);
                     }
@@ -71,8 +75,14 @@ public class BotUpdateHandler(
                 case AdminDialogState.WaitingForDayOfWeek:
                     if (int.TryParse(text, out var day) && day is >= 1 and <= 7)
                     {
-                        stateService.SetState(adminId, AdminDialogState.WaitingForExercisesList);
-                        await botClient.SendMessage(chatId, "Enter exercises list (e.g., Squats 3x10):", cancellationToken: cancellationToken);
+                        var draft = stateService.GetDraft(adminId);
+                        if (draft != null)
+                        {
+                            draft.DayOfWeek = day;
+                            stateService.SetDraft(adminId, draft);
+                            stateService.SetState(adminId, AdminDialogState.WaitingForExercisesList);
+                            await botClient.SendMessage(chatId, "Enter exercises list (e.g., Squats 3x10):", cancellationToken: cancellationToken);
+                        }
                     }
                     else
                     {
@@ -81,8 +91,16 @@ public class BotUpdateHandler(
                     break;
 
                 case AdminDialogState.WaitingForExercisesList:
-                    await botClient.SendMessage(chatId, "Program received! (Database saving logic will be implemented next).", cancellationToken: cancellationToken);
-                    stateService.ClearState(adminId);
+                    var finalDraft = stateService.GetDraft(adminId);
+                    if (finalDraft != null)
+                    {
+                        finalDraft.ExercisesText = text;
+                        var parser = new ExerciseParser();
+                        var exercises = parser.Parse(text);
+                        logger.LogInformation("Parsed {Count} exercises", exercises.Count);
+                        await botClient.SendMessage(chatId, "Program received! (Database saving logic will be implemented next).", cancellationToken: cancellationToken);
+                        stateService.ClearState(adminId);
+                    }
                     break;
             }
         }

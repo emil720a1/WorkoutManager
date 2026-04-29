@@ -2,6 +2,7 @@ namespace WorkoutManager.Infrastructure.Services;
 
 using System;
 using Microsoft.Extensions.Caching.Memory;
+using WorkoutManager.Application.DTOs;
 using WorkoutManager.Application.Enums;
 using WorkoutManager.Application.Interfaces;
 
@@ -22,5 +23,16 @@ public class MemoryCacheStateService(IMemoryCache cache) : IStateService
     public void ClearState(long telegramId)
     {
         cache.Remove($"admin_state_{telegramId}");
+        cache.Remove($"draft_{telegramId}");
+    }
+
+    public WorkoutDraft? GetDraft(long telegramId)
+    {
+        return cache.TryGetValue($"draft_{telegramId}", out WorkoutDraft? draft) ? draft : null;
+    }
+
+    public void SetDraft(long telegramId, WorkoutDraft draft)
+    {
+        cache.Set($"draft_{telegramId}", draft, TimeSpan.FromMinutes(15));
     }
 }
