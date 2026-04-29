@@ -24,6 +24,9 @@ public static class DependencyInjection
         services.AddScoped<IAthleteRepository, AthleteRepository>();
         services.AddScoped<IProgramRepository, ProgramRepository>();
 
+        services.AddMemoryCache();
+        services.AddSingleton<IStateService, MemoryCacheStateService>();
+
         services.AddScoped<INotificationService, TelegramNotificationService>();
         services.AddTransient<MorningWorkoutJob>();
 

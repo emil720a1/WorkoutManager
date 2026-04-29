@@ -1,91 +1,101 @@
-using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using WorkoutManager.Application.Interfaces;
-using Microsoft.Extensions.Options;
 using WorkoutManager.Application.Common.Options;
+using WorkoutManager.Application.Enums;
+using WorkoutManager.Application.Interfaces;
 
 namespace WorkoutManager.API.Bot.Handlers;
 
 public class BotUpdateHandler(
-    IServiceScopeFactory scopeFactory,
     ILogger<BotUpdateHandler> logger,
     ITelegramBotClient botClient,
-    IOptions<BotConfiguration> options) : IBotUpdateHandler
+    IOptions<BotConfiguration> options,
+    IStateService stateService) : IBotUpdateHandler
 {
     public async Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
     {
         if (update.Type != UpdateType.Message || update.Message?.Text is null)
+        {
             return;
+        }
 
         var message = update.Message;
         var chatId = message.Chat.Id;
         var text = message.Text;
-        
-        logger.LogInformation("Received message '{Text}' in chat {ChatId}.", text, chatId);
+        var adminId = options.Value.AdminTelegramId;
 
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var workoutService = scope.ServiceProvider.GetRequiredService<IWorkoutService>();
-
-        try 
+        if (message.From?.Id != adminId)
         {
-            if (text.StartsWith("/set_program") && message.From?.Id != options.Value.AdminTelegramId)
-            {
-                await botClient.SendMessage(chatId, "Forbidden. Admin access only.", cancellationToken: cancellationToken);
-                return;
-            }
+            return;
+        }
 
-            if (text.StartsWith("/start"))
+        if (text == "/cancel")
+        {
+            stateService.ClearState(adminId);
+            await botClient.SendMessage(chatId, "Dialog cancelled.", cancellationToken: cancellationToken);
+            return;
+        }
+
+        var currentState = stateService.GetState(adminId);
+
+        try
+        {
+            switch (currentState)
             {
-                await HandleStartCommand(workoutService, message, cancellationToken);
-            }
-            else if (text.StartsWith("/today"))
-            {
-                await HandleTodayCommand(workoutService, message, cancellationToken);
-            }
-            else
-            {
-                await botClient.SendMessage(chatId, "Невідома команда. Спробуй /start.", cancellationToken: cancellationToken);
+                case AdminDialogState.None:
+                    if (text == "/set_program")
+                    {
+                        stateService.SetState(adminId, AdminDialogState.WaitingForAthleteTelegramId);
+                        await botClient.SendMessage(chatId, "Enter Athlete Telegram ID:", cancellationToken: cancellationToken);
+                    }
+                    break;
+
+                case AdminDialogState.WaitingForAthleteTelegramId:
+                    if (long.TryParse(text, out _))
+                    {
+                        stateService.SetState(adminId, AdminDialogState.WaitingForDayOfWeek);
+                        await botClient.SendMessage(chatId, "Enter Day of Week (1 for Monday, 7 for Sunday):", cancellationToken: cancellationToken);
+                    }
+                    else
+                    {
+                        await botClient.SendMessage(chatId, "Invalid ID format. Please enter numbers only.", cancellationToken: cancellationToken);
+                    }
+                    break;
+
+                case AdminDialogState.WaitingForDayOfWeek:
+                    if (int.TryParse(text, out var day) && day is >= 1 and <= 7)
+                    {
+                        stateService.SetState(adminId, AdminDialogState.WaitingForExercisesList);
+                        await botClient.SendMessage(chatId, "Enter exercises list (e.g., Squats 3x10):", cancellationToken: cancellationToken);
+                    }
+                    else
+                    {
+                        await botClient.SendMessage(chatId, "Invalid day. Enter a number from 1 to 7.", cancellationToken: cancellationToken);
+                    }
+                    break;
+
+                case AdminDialogState.WaitingForExercisesList:
+                    await botClient.SendMessage(chatId, "Program received! (Database saving logic will be implemented next).", cancellationToken: cancellationToken);
+                    stateService.ClearState(adminId);
+                    break;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Помилка при обробці команди {Text}", text);
-            await botClient.SendMessage(chatId, "Сталася внутрішня помилка сервера.", cancellationToken: cancellationToken);
+            logger.LogError(ex, "Error processing update");
+            await botClient.SendMessage(chatId, "Server error.", cancellationToken: cancellationToken);
         }
     }
 
     public Task HandleErrorAsync(Exception exception, CancellationToken cancellationToken)
     {
-        logger.LogError(exception, "Error occurred during Telegram update handling.");
+        logger.LogError(exception, "Telegram error");
         return Task.CompletedTask;
-    }
-
-    private async Task HandleStartCommand(IWorkoutService workoutService, Message message, CancellationToken cancellationToken)
-    {
-        var telegramId = message.From?.Id ?? message.Chat.Id;
-        var name = message.From?.FirstName ?? "Athlete";
-
-        var result = await workoutService.RegisterAthleteAsync(telegramId, name);
-
-        var replyText = result.IsSuccess 
-            ? $"Привіт, {name}! Тебе успішно зареєстровано в системі WorkoutManager. Очікуй на призначення програми." 
-            : $"З поверненням, {name}! Ти вже зареєстрований(-а).";
-
-        await botClient.SendMessage(message.Chat.Id, replyText, cancellationToken: cancellationToken);
-    }
-
-    private async Task HandleTodayCommand(IWorkoutService workoutService, Message message, CancellationToken cancellationToken)
-    {
-        var telegramId = message.From?.Id ?? message.Chat.Id;
-        var replyText = await workoutService.GetTodaysWorkoutAsync(telegramId, cancellationToken);
-
-        await botClient.SendMessage(
-            chatId: message.Chat.Id, 
-            text: replyText, 
-            parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown, 
-            cancellationToken: cancellationToken);
     }
 }
