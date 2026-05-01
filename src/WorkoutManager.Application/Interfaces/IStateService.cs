@@ -5,9 +5,9 @@ using WorkoutManager.Application.Enums;
 
 public interface IStateService
 {
-    AdminDialogState GetState(long telegramId);
-    void SetState(long telegramId, AdminDialogState state);
-    void ClearState(long telegramId);
-    WorkoutDraft? GetDraft(long telegramId);
-    void SetDraft(long telegramId, WorkoutDraft draft);
+    Task<AdminDialogState> GetStateAsync(long telegramId);
+    Task SetStateAsync(long telegramId, AdminDialogState state);
+    Task ClearStateAsync(long telegramId);
+    Task<WorkoutDraft?> GetDraftAsync(long telegramId);
+    Task SetDraftAsync(long telegramId, WorkoutDraft draft);
 }

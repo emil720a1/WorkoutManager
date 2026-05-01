@@ -23,29 +23,42 @@ public class BotUpdateHandler(
 {
     public async Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
     {
-        if (update.Type != UpdateType.Message || update.Message?.Text is null)
+        if (update.Type != UpdateType.Message || update.Message is null)
         {
             return;
         }
 
         var message = update.Message;
         var chatId = message.Chat.Id;
+        var userId = message.From?.Id ?? 0;
         var text = message.Text;
         var adminId = options.Value.AdminTelegramId;
 
-        if (message.From?.Id != adminId)
-        {
-            return;
-        }
+        // if (userId != adminId)
+        // {
+        //     await botClient.SendMessage(chatId, "Access denied.", cancellationToken: cancellationToken);
+        //     return;
+        // }
 
         if (text == "/cancel")
         {
-            stateService.ClearState(adminId);
+            await stateService.ClearStateAsync(userId);
             await botClient.SendMessage(chatId, "Dialog cancelled.", cancellationToken: cancellationToken);
             return;
         }
 
-        var currentState = stateService.GetState(adminId);
+        var currentState = await stateService.GetStateAsync(userId);
+
+        if (string.IsNullOrWhiteSpace(text) && currentState != AdminDialogState.None)
+        {
+            await botClient.SendMessage(chatId, "Please send a text message for this step.", cancellationToken: cancellationToken);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
 
         try
         {
@@ -54,8 +67,16 @@ public class BotUpdateHandler(
                 case AdminDialogState.None:
                     if (text == "/set_program")
                     {
-                        stateService.SetState(adminId, AdminDialogState.WaitingForAthleteTelegramId);
+                        await stateService.SetStateAsync(userId, AdminDialogState.WaitingForAthleteTelegramId);
                         await botClient.SendMessage(chatId, "Enter Athlete Telegram ID:", cancellationToken: cancellationToken);
+                    }
+                    else if (text == "/start")
+                    {
+                        await botClient.SendMessage(chatId, "Привіт! Я твій Workout-бот. Обери дію в меню.", cancellationToken: cancellationToken);
+                    }
+                    else if (text == "/help")
+                    {
+                        await botClient.SendMessage(chatId, "Цей бот допомагає керувати тренуваннями. Використовуй меню зліва для навігації.", cancellationToken: cancellationToken);
                     }
                     break;
 
@@ -63,8 +84,8 @@ public class BotUpdateHandler(
                     if (long.TryParse(text, out var athleteId))
                     {
                         var draft = new WorkoutDraft { AthleteId = athleteId };
-                        stateService.SetDraft(adminId, draft);
-                        stateService.SetState(adminId, AdminDialogState.WaitingForDayOfWeek);
+                        await stateService.SetDraftAsync(userId, draft);
+                        await stateService.SetStateAsync(userId, AdminDialogState.WaitingForDayOfWeek);
                         await botClient.SendMessage(chatId, "Enter Day of Week (1 for Monday, 7 for Sunday):", cancellationToken: cancellationToken);
                     }
                     else
@@ -76,12 +97,12 @@ public class BotUpdateHandler(
                 case AdminDialogState.WaitingForDayOfWeek:
                     if (int.TryParse(text, out var day) && day is >= 1 and <= 7)
                     {
-                        var draft = stateService.GetDraft(adminId);
+                        var draft = await stateService.GetDraftAsync(userId);
                         if (draft != null)
                         {
                             draft.DayOfWeek = day;
-                            stateService.SetDraft(adminId, draft);
-                            stateService.SetState(adminId, AdminDialogState.WaitingForExercisesList);
+                            await stateService.SetDraftAsync(userId, draft);
+                            await stateService.SetStateAsync(userId, AdminDialogState.WaitingForExercisesList);
                             await botClient.SendMessage(chatId, "Enter exercises list (e.g., Squats 3x10):", cancellationToken: cancellationToken);
                         }
                     }
@@ -92,7 +113,7 @@ public class BotUpdateHandler(
                     break;
 
                 case AdminDialogState.WaitingForExercisesList:
-                    var finalDraft = stateService.GetDraft(adminId);
+                    var finalDraft = await stateService.GetDraftAsync(userId);
                     if (finalDraft != null)
                     {
                         finalDraft.ExercisesText = text;
@@ -113,15 +134,16 @@ public class BotUpdateHandler(
                             await botClient.SendMessage(chatId, $"Error: {saveResult.Error}", cancellationToken: cancellationToken);
                         }
 
-                        stateService.ClearState(adminId);
+                        await stateService.ClearStateAsync(userId);
                     }
                     break;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error processing update");
-            await botClient.SendMessage(chatId, "Server error.", cancellationToken: cancellationToken);
+            logger.LogError(ex, "Error processing update for user {UserId}", userId);
+            await stateService.ClearStateAsync(userId);
+            await botClient.SendMessage(chatId, "Server error. Flow was reset.", cancellationToken: cancellationToken);
         }
     }
 

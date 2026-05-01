@@ -14,38 +14,38 @@ public class RedisStateService(IDistributedCache cache) : IStateService
         SlidingExpiration = TimeSpan.FromMinutes(15)
     };
 
-    public AdminDialogState GetState(long telegramId)
+    public async Task<AdminDialogState> GetStateAsync(long telegramId)
     {
-        var value = cache.GetString($"WorkoutBot:State:{telegramId}");
+        var value = await cache.GetStringAsync($"WorkoutBot:State:{telegramId}");
         if (string.IsNullOrEmpty(value))
             return AdminDialogState.None;
 
         return Enum.TryParse<AdminDialogState>(value, out var state) ? state : AdminDialogState.None;
     }
 
-    public void SetState(long telegramId, AdminDialogState state)
+    public async Task SetStateAsync(long telegramId, AdminDialogState state)
     {
-        cache.SetString($"WorkoutBot:State:{telegramId}", state.ToString(), _options);
+        await cache.SetStringAsync($"WorkoutBot:State:{telegramId}", state.ToString(), _options);
     }
 
-    public void ClearState(long telegramId)
+    public async Task ClearStateAsync(long telegramId)
     {
-        cache.Remove($"WorkoutBot:State:{telegramId}");
-        cache.Remove($"WorkoutBot:Draft:{telegramId}");
+        await cache.RemoveAsync($"WorkoutBot:State:{telegramId}");
+        await cache.RemoveAsync($"WorkoutBot:Draft:{telegramId}");
     }
 
-    public WorkoutDraft? GetDraft(long telegramId)
+    public async Task<WorkoutDraft?> GetDraftAsync(long telegramId)
     {
-        var value = cache.GetString($"WorkoutBot:Draft:{telegramId}");
+        var value = await cache.GetStringAsync($"WorkoutBot:Draft:{telegramId}");
         if (string.IsNullOrEmpty(value))
             return null;
 
         return JsonSerializer.Deserialize<WorkoutDraft>(value);
     }
 
-    public void SetDraft(long telegramId, WorkoutDraft draft)
+    public async Task SetDraftAsync(long telegramId, WorkoutDraft draft)
     {
         var value = JsonSerializer.Serialize(draft);
-        cache.SetString($"WorkoutBot:Draft:{telegramId}", value, _options);
+        await cache.SetStringAsync($"WorkoutBot:Draft:{telegramId}", value, _options);
     }
 }
