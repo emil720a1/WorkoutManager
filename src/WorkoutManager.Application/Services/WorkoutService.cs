@@ -112,4 +112,64 @@ public class WorkoutService(
 
         return sb.ToString();
     }
+
+    public async Task<Result<bool>> SaveParsedWorkoutAsync(long telegramId, int dayOfWeek, List<Exercise> exercises, CancellationToken cancellationToken)
+    {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var athlete = await dbContext.Athletes.FirstOrDefaultAsync(a => a.TelegramId == telegramId, cancellationToken);
+            if (athlete is null)
+                return Result<bool>.Failure("Athlete not found.");
+
+            Program? program = null;
+            if (athlete.CurrentProgramId is null)
+            {
+                program = new Program("Custom Program", "Auto-generated program");
+                await dbContext.Programs.AddAsync(program, cancellationToken);
+                athlete.SetProgram(program.Id);
+            }
+            else
+            {
+                program = await dbContext.Programs
+                    .Include(p => p.Days)
+                    .ThenInclude(d => d.Exercises)
+                    .FirstOrDefaultAsync(p => p.Id == athlete.CurrentProgramId.Value, cancellationToken);
+                
+                if (program is null)
+                {
+                    program = new Program("Custom Program", "Auto-generated program");
+                    await dbContext.Programs.AddAsync(program, cancellationToken);
+                    athlete.SetProgram(program.Id);
+                }
+            }
+
+            var workoutDay = program.Days.FirstOrDefault(d => d.DayNumber == dayOfWeek);
+            if (workoutDay is not null)
+            {
+                workoutDay.ClearExercises();
+            }
+            else
+            {
+                workoutDay = new WorkoutDay(dayOfWeek, $"Day {dayOfWeek}");
+                program.AddDay(workoutDay);
+            }
+
+            foreach (var exercise in exercises)
+            {
+                workoutDay.AddExercise(exercise);
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return Result<bool>.Success(true);
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<bool>.Failure("An error occurred while saving the workout.");
+        }
+    }
 }

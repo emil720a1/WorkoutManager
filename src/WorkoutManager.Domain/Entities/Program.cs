@@ -29,4 +29,6 @@ public class Program : AggregateRoot
         
         _days.Add(day);
     }
+
+    public void AddDay(WorkoutDay day) => AddWorkoutDay(day);
 }

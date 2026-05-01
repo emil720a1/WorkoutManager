@@ -18,7 +18,8 @@ public class BotUpdateHandler(
     ILogger<BotUpdateHandler> logger,
     ITelegramBotClient botClient,
     IOptions<BotConfiguration> options,
-    IStateService stateService) : IBotUpdateHandler
+    IStateService stateService,
+    Microsoft.Extensions.DependencyInjection.IServiceScopeFactory scopeFactory) : IBotUpdateHandler
 {
     public async Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
     {
@@ -97,8 +98,21 @@ public class BotUpdateHandler(
                         finalDraft.ExercisesText = text;
                         var parser = new ExerciseParser();
                         var exercises = parser.Parse(text);
-                        logger.LogInformation("Parsed {Count} exercises", exercises.Count);
-                        await botClient.SendMessage(chatId, "Program received! (Database saving logic will be implemented next).", cancellationToken: cancellationToken);
+                        
+                        await using var scope = scopeFactory.CreateAsyncScope();
+                        var _workoutService = scope.ServiceProvider.GetRequiredService<IWorkoutService>();
+
+                        var saveResult = await _workoutService.SaveParsedWorkoutAsync(finalDraft.AthleteId, finalDraft.DayOfWeek, exercises, cancellationToken);
+                        
+                        if (saveResult.IsSuccess)
+                        {
+                            await botClient.SendMessage(chatId, "Program received and saved successfully!", cancellationToken: cancellationToken);
+                        }
+                        else
+                        {
+                            await botClient.SendMessage(chatId, $"Error: {saveResult.Error}", cancellationToken: cancellationToken);
+                        }
+
                         stateService.ClearState(adminId);
                     }
                     break;

@@ -25,6 +25,16 @@ public class WorkoutDay : Entity
     public void AddExercise(string name, int sets, string reps)
     {
         var volume = new WorkoutVolume(sets, reps);
-        _exercises.Add(new Exercise(name, volume));
+        AddExercise(new Exercise(name, volume));
+    }
+
+    public void AddExercise(Exercise exercise)
+    {
+        _exercises.Add(exercise);
+    }
+
+    public void ClearExercises()
+    {
+        _exercises.Clear();
     }
 }
