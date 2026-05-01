@@ -24,8 +24,11 @@ public static class DependencyInjection
         services.AddScoped<IAthleteRepository, AthleteRepository>();
         services.AddScoped<IProgramRepository, ProgramRepository>();
 
-        services.AddMemoryCache();
-        services.AddSingleton<IStateService, MemoryCacheStateService>();
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = configuration.GetConnectionString("Redis");
+        });
+        services.AddSingleton<IStateService, RedisStateService>();
 
         services.AddScoped<INotificationService, TelegramNotificationService>();
         services.AddTransient<MorningWorkoutJob>();
