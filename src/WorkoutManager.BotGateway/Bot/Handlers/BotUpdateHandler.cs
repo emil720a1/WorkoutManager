@@ -9,14 +9,14 @@ using StackExchange.Redis;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using WorkoutManager.Application.Common.Options;
-using WorkoutManager.Application.Enums;
-using WorkoutManager.Application.Interfaces;
-using WorkoutManager.Application.DTOs;
-using WorkoutManager.Application.Services;
+using WorkoutManager.BotGateway.Bot.DTOs;
+using WorkoutManager.BotGateway.Bot.Enums;
+using WorkoutManager.BotGateway.Bot.Interfaces;
+using WorkoutManager.BotGateway.Bot.Options;
+using WorkoutManager.BotGateway.Common;
 using WorkoutManager.Contracts;
 
-namespace WorkoutManager.API.Bot.Handlers;
+namespace WorkoutManager.BotGateway.Bot.Handlers;
 
 public class BotUpdateHandler(
     ILogger<BotUpdateHandler> logger,
@@ -56,7 +56,13 @@ public class BotUpdateHandler(
             switch (currentState)
             {
                 case AdminDialogState.None:
-                    if (text == "/set_program")
+                    if (text == "/start" || text == "/help")
+                    {
+                        await botClient.SendMessage(chatId,
+                            "👋 Привіт, адміне!\n\nДоступні команди:\n/set_program — задати програму тренувань\n/cancel — скасувати поточний діалог",
+                            cancellationToken: cancellationToken);
+                    }
+                    else if (text == "/set_program")
                     {
                         stateService.SetState(adminId, AdminDialogState.WaitingForAthleteTelegramId);
                         await botClient.SendMessage(chatId, "Enter Athlete Telegram ID:", cancellationToken: cancellationToken);
@@ -104,14 +110,7 @@ public class BotUpdateHandler(
 
                         try
                         {
-                            var exercises = parser.Parse(text);
-
-                            var exerciseDtos = exercises.Select(e => new ExerciseDto
-                            {
-                                Name = e.Name,
-                                Sets = e.Volume.Sets,
-                                Reps = e.Volume.Reps
-                            }).ToList();
+                            var exerciseDtos = parser.Parse(text);
 
                             var integrationEvent = new WorkoutCreatedEvent
                             {

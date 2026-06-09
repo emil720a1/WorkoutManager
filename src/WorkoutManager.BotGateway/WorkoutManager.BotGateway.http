@@ -1,0 +1,6 @@
+@WorkoutManager.BotGateway_HostAddress = http://localhost:5009
+
+GET {{WorkoutManager.BotGateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

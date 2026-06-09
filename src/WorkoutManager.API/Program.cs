@@ -2,6 +2,7 @@ using WorkoutManager.Infrastructure;
 using WorkoutManager.Application;
 using WorkoutManager.API.Bot.Handlers;
 using WorkoutManager.API.Bot.Services;
+using WorkoutManager.API.Bot.Workers;
 using Telegram.Bot;
 using Hangfire;
 using WorkoutManager.Infrastructure.BackgroundJobs;
@@ -22,6 +23,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddSingleton<IBotUpdateHandler, BotUpdateHandler>();
 builder.Services.AddHostedService<TelegramBotBackgroundService>();
+builder.Services.AddHostedService<NotificationSubscriberWorker>();
 
 builder.Services.AddOpenApi();
 

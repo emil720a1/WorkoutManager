@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WorkoutManager.Application\WorkoutManager.Application.csproj" />
+    <ProjectReference Include="..\WorkoutManager.Contracts\WorkoutManager.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
