@@ -1,12 +1,15 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
-using WorkoutManager.Application.Common.Options;
-using WorkoutManager.API.Bot.Handlers;
+using WorkoutManager.BotGateway.Bot.Handlers;
+using WorkoutManager.BotGateway.Bot.Options;
 
-namespace WorkoutManager.API.Bot.Services;
+namespace WorkoutManager.BotGateway.Bot.Services;
 
 public class TelegramBotBackgroundService(
     ITelegramBotClient botClient,

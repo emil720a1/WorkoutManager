@@ -1,4 +1,5 @@
 services:
+
   db:
     image: postgres:17-alpine
     container_name: workout-db
@@ -11,6 +12,23 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: workout-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4
@@ -22,7 +40,37 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+
+  bot-gateway:
+    build:
+      context: .
+      dockerfile: src/WorkoutManager.BotGateway/Dockerfile
+    container_name: workout-bot-gateway
+    restart: always
+    environment:
+      ConnectionStrings__Redis: "redis:6379"
+      BotConfiguration__BotToken: "${BOT_TOKEN}"
+      BotConfiguration__AdminTelegramId: "${ADMIN_TELEGRAM_ID}"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  workout-api:
+    build:
+      context: .
+      dockerfile: src/WorkoutManager.WorkoutAPI/Dockerfile
+    container_name: workout-api
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=workout_db;Username=postgres;Password=your_password"
+      ConnectionStrings__Redis: "redis:6379"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:

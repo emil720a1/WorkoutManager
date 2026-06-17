@@ -7,6 +7,9 @@ public interface IAthleteRepository
     Task<Athlete?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Athlete?> GetByTelegramIdAsync(long telegramId, CancellationToken cancellationToken = default);
     
+    // Lazy Binding: find pending athlete by username to bind their real TelegramId
+    Task<Athlete?> GetPendingByUsernameAsync(string username, CancellationToken cancellationToken = default);
+    
     Task<IReadOnlyCollection<Athlete>> GetAthletesToNotifyAsync(int dayOfWeek, CancellationToken cancellationToken = default);
     Task AddAsync(Athlete athlete, CancellationToken cancellationToken = default);
     void Update(Athlete athlete);

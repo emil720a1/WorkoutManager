@@ -1,25 +1,29 @@
 using System;
+using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using WorkoutManager.Application.Common.Options;
-using WorkoutManager.Application.Enums;
-using WorkoutManager.Application.Interfaces;
-using WorkoutManager.Application.DTOs;
-using WorkoutManager.Application.Services;
+using WorkoutManager.BotGateway.Bot.DTOs;
+using WorkoutManager.BotGateway.Bot.Enums;
+using WorkoutManager.BotGateway.Bot.Interfaces;
+using WorkoutManager.BotGateway.Bot.Options;
+using WorkoutManager.BotGateway.Common;
+using WorkoutManager.Contracts;
 
-namespace WorkoutManager.API.Bot.Handlers;
+namespace WorkoutManager.BotGateway.Bot.Handlers;
 
 public class BotUpdateHandler(
     ILogger<BotUpdateHandler> logger,
     ITelegramBotClient botClient,
     IOptions<BotConfiguration> options,
     IStateService stateService,
-    Microsoft.Extensions.DependencyInjection.IServiceScopeFactory scopeFactory) : IBotUpdateHandler
+    IConnectionMultiplexer redisMultiplexer) : IBotUpdateHandler
 {
     public async Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
     {
@@ -52,7 +56,13 @@ public class BotUpdateHandler(
             switch (currentState)
             {
                 case AdminDialogState.None:
-                    if (text == "/set_program")
+                    if (text == "/start" || text == "/help")
+                    {
+                        await botClient.SendMessage(chatId,
+                            "👋 Привіт, адміне!\n\nДоступні команди:\n/set_program — задати програму тренувань\n/cancel — скасувати поточний діалог",
+                            cancellationToken: cancellationToken);
+                    }
+                    else if (text == "/set_program")
                     {
                         stateService.SetState(adminId, AdminDialogState.WaitingForAthleteTelegramId);
                         await botClient.SendMessage(chatId, "Enter Athlete Telegram ID:", cancellationToken: cancellationToken);
@@ -97,23 +107,56 @@ public class BotUpdateHandler(
                     {
                         finalDraft.ExercisesText = text;
                         var parser = new ExerciseParser();
-                        var exercises = parser.Parse(text);
-                        
-                        await using var scope = scopeFactory.CreateAsyncScope();
-                        var _workoutService = scope.ServiceProvider.GetRequiredService<IWorkoutService>();
 
-                        var saveResult = await _workoutService.SaveParsedWorkoutAsync(finalDraft.AthleteId, finalDraft.DayOfWeek, exercises, cancellationToken);
-                        
-                        if (saveResult.IsSuccess)
+                        try
                         {
-                            await botClient.SendMessage(chatId, "Program received and saved successfully!", cancellationToken: cancellationToken);
-                        }
-                        else
-                        {
-                            await botClient.SendMessage(chatId, $"Error: {saveResult.Error}", cancellationToken: cancellationToken);
-                        }
+                            var exerciseDtos = parser.Parse(text);
 
-                        stateService.ClearState(adminId);
+                            var integrationEvent = new WorkoutCreatedEvent
+                            {
+                                AthleteId = finalDraft.AthleteId,
+                                DayOfWeek = finalDraft.DayOfWeek,
+                                Exercises = exerciseDtos
+                            };
+
+                            var jsonPayload = JsonSerializer.Serialize(integrationEvent);
+                            var subscriber = redisMultiplexer.GetSubscriber();
+
+                            logger.LogInformation("Publishing WorkoutCreatedEvent {EventId} to Redis for user {UserId}", integrationEvent.EventId, adminId);
+
+                            await subscriber.PublishAsync(
+                                RedisChannel.Literal("workout_channel"),
+                                new RedisValue(jsonPayload)
+                            );
+
+                            await botClient.SendMessage(
+                                chatId,
+                                "Вашу програму тренувань прийнято та надіслано на обробку сервером!",
+                                cancellationToken: cancellationToken
+                            );
+                        }
+                        catch (RedisException redisEx)
+                        {
+                            logger.LogError(redisEx, "Redis transport failure while publishing workout for user {UserId}", adminId);
+                            await botClient.SendMessage(
+                                chatId,
+                                "Вибачте, сталася помилка зв'язку з брокером повідомлень (Redis). Ми спробуємо обробити її пізніше.",
+                                cancellationToken: cancellationToken
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "Unexpected error compiling exercises draft for user {UserId}", adminId);
+                            await botClient.SendMessage(
+                                chatId,
+                                "Сталася критична помилка під час обробки вашої програми.",
+                                cancellationToken: cancellationToken
+                            );
+                        }
+                        finally
+                        {
+                            stateService.ClearState(adminId);
+                        }
                     }
                     break;
             }

@@ -4,5 +4,11 @@
     <Project Path="src/WorkoutManager.Application/WorkoutManager.Application.csproj" />
     <Project Path="src/WorkoutManager.Domain/WorkoutManager.Domain.csproj" />
     <Project Path="src/WorkoutManager.Infrastructure/WorkoutManager.Infrastructure.csproj" />
+    <Project Path="src/WorkoutManager.Contracts/WorkoutManager.Contracts.csproj" />
+    <Project Path="src/WorkoutManager.BotGateway/WorkoutManager.BotGateway.csproj" />
+    <Project Path="src/WorkoutManager.WorkoutAPI/WorkoutManager.WorkoutAPI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WorkoutManager.Application.Tests/WorkoutManager.Application.Tests.csproj" />
   </Folder>
 </Solution>
