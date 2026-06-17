@@ -23,10 +23,21 @@ public class AthleteRepository : IAthleteRepository
         return await _context.Athletes.FirstOrDefaultAsync(a => a.TelegramId == telegramId, cancellationToken);
     }
 
+    // Lazy Binding: find unbound (pending) athlete by username
+    public async Task<Athlete?> GetPendingByUsernameAsync(string username, CancellationToken cancellationToken = default)
+    {
+        var normalized = username.TrimStart('@').ToLowerInvariant();
+        return await _context.Athletes
+            .FirstOrDefaultAsync(
+                a => a.Username == normalized && a.Status == AthleteStatus.Pending,
+                cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<Athlete>> GetAthletesToNotifyAsync(int dayOfWeek, CancellationToken cancellationToken = default)
     {
         return await _context.Athletes
-            // .Where(a => a.NotificationDays.Contains(dayOfWeek)) // приклад бізнес-домену
+            .Where(a => a.Status == AthleteStatus.Active)
+            // .Where(a => a.NotificationDays.Contains(dayOfWeek))
             .ToListAsync(cancellationToken);
     }
 

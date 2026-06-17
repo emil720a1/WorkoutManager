@@ -9,6 +9,7 @@ using WorkoutManager.Domain.Interfaces;
 using WorkoutManager.Infrastructure.BackgroundJobs;
 using WorkoutManager.Infrastructure.Persistence;
 using WorkoutManager.Infrastructure.Persistence.Repositories;
+using WorkoutManager.Infrastructure.Repositories;
 using WorkoutManager.Infrastructure.Services;
 using WorkoutManager.Infrastructure.Workers;
 
@@ -30,6 +31,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAthleteRepository, AthleteRepository>();
         services.AddScoped<IProgramRepository, ProgramRepository>();
+        services.AddSingleton<IAthleteRedisRepository, AthleteRedisRepository>();
 
         services.AddStackExchangeRedisCache(options =>
         {
