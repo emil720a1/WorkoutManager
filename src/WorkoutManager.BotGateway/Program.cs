@@ -40,7 +40,7 @@ builder.Services.AddSingleton<IStateService, RedisStateService>();
 // Реєстрація хандлерів та воркерів
 builder.Services.AddSingleton<IBotUpdateHandler, BotUpdateHandler>();
 builder.Services.AddHostedService<TelegramBotBackgroundService>();
-builder.Services.AddHostedService<NotificationSubscriberWorker>();
+builder.Services.AddHostedService<RedisNotificationSubscriber>();
 
 builder.Services.AddOpenApi();
 

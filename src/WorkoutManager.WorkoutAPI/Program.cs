@@ -19,11 +19,12 @@ var app = builder.Build();
 // Ввімкнення панелі Hangfire Dashboard
 app.UseHangfireDashboard();
 
-// Реєстрація щоденної ранкової задачі надсиланняreminder-ів
-RecurringJob.AddOrUpdate<MorningWorkoutJob>(
-    "MorningWorkoutReminder",
-    job => job.ExecuteAsync(CancellationToken.None),
-    "0 7 * * *");
+// Запуск планувальника повідомлень з Application Layer
+using (var scope = app.Services.CreateScope())
+{
+    var scheduler = scope.ServiceProvider.GetRequiredService<WorkoutManager.Infrastructure.BackgroundJobs.WorkoutNotificationJob>();
+    scheduler.ScheduleDailyNotificationsJob();
+}
 
 if (app.Environment.IsDevelopment())
 {

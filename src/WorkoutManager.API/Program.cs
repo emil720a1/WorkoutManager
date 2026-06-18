@@ -1,29 +1,15 @@
-using WorkoutManager.Infrastructure;
-using WorkoutManager.Application;
-using WorkoutManager.API.Bot.Handlers;
-using WorkoutManager.API.Bot.Services;
-using WorkoutManager.API.Bot.Workers;
-using Telegram.Bot;
 using Hangfire;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using WorkoutManager.Application;
+using WorkoutManager.Infrastructure;
 using WorkoutManager.Infrastructure.BackgroundJobs;
-using WorkoutManager.Application.Common.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<BotConfiguration>(builder.Configuration.GetSection(BotConfiguration.Configuration));
-builder.Services.AddHttpClient("tgclient")
-    .AddTypedClient<ITelegramBotClient>((httpClient, sp) =>
-    {
-        var botConfig = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BotConfiguration>>().Value;
-        return new TelegramBotClient(botConfig.BotToken, httpClient);
-    });
-
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-
-builder.Services.AddSingleton<IBotUpdateHandler, BotUpdateHandler>();
-builder.Services.AddHostedService<TelegramBotBackgroundService>();
-builder.Services.AddHostedService<NotificationSubscriberWorker>();
 
 builder.Services.AddOpenApi();
 
@@ -31,10 +17,11 @@ var app = builder.Build();
 
 app.UseHangfireDashboard();
 
-RecurringJob.AddOrUpdate<MorningWorkoutJob>(
-    "MorningWorkoutReminder",
-    job => job.ExecuteAsync(CancellationToken.None),
-    "0 7 * * *");
+using (var scope = app.Services.CreateScope())
+{
+    var scheduler = scope.ServiceProvider.GetRequiredService<WorkoutNotificationJob>();
+    scheduler.ScheduleDailyNotificationsJob();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -42,5 +29,4 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.Run();
