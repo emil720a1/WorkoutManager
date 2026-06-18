@@ -39,7 +39,7 @@ public static class DependencyInjection
         });
         services.AddSingleton<IStateService, RedisStateService>();
 
-        services.AddTransient<MorningWorkoutJob>();
+        services.AddTransient<WorkoutNotificationJob>();
 
         services.AddHostedService<RedisSubscriberWorker>();
 
