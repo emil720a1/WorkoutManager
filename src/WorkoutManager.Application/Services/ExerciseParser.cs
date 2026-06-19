@@ -2,10 +2,8 @@ namespace WorkoutManager.Application.Services;
 
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using WorkoutManager.Domain.Entities;
-using WorkoutManager.Domain.ValueObjects;
 
 public class ExerciseParser
 {
@@ -24,13 +22,7 @@ public class ExerciseParser
                 var sets = int.Parse(match.Groups[2].Value);
                 var reps = match.Groups[3].Value;
 
-                var volume = new WorkoutVolume(sets, reps);
-                var exercise = (Exercise)Activator.CreateInstance(
-                    typeof(Exercise), 
-                    BindingFlags.NonPublic | BindingFlags.Instance, 
-                    null, 
-                    [name, volume], 
-                    null)!;
+                var exercise = Exercise.CreateParsed(name, sets, reps);
 
                 exercises.Add(exercise);
             }

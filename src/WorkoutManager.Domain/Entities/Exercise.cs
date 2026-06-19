@@ -19,4 +19,14 @@ public class Exercise : Entity
         Name = name;
         Volume = volume;
     }
+
+    public static Exercise CreateParsed(string name, int sets, string reps)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Exercise name cannot be empty or whitespace.", nameof(name));
+        }
+
+        return new Exercise(name, new WorkoutVolume(sets, reps));
+    }
 }
