@@ -15,6 +15,7 @@ using WorkoutManager.BotGateway.Bot.Interfaces;
 using WorkoutManager.BotGateway.Bot.Options;
 using WorkoutManager.BotGateway.Common;
 using WorkoutManager.Contracts;
+using WorkoutManager.BotGateway.Bot.Helpers;
 
 namespace WorkoutManager.BotGateway.Bot.Handlers;
 
@@ -23,16 +24,26 @@ public class BotUpdateHandler(
     ITelegramBotClient botClient,
     IOptions<BotConfiguration> options,
     IStateService stateService,
-    IConnectionMultiplexer redisMultiplexer) : IBotUpdateHandler
+    AthleteMenuBuilder athleteMenuBuilder,
+    WorkoutManager.BotGateway.HttpClients.WorkoutApiClient apiClient) : IBotUpdateHandler
 {
     public async Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
     {
-        if (update.Type != UpdateType.Message || update.Message?.Text is null)
+        if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery != null)
         {
+            await HandleCallbackQueryAsync(update.CallbackQuery, cancellationToken);
             return;
         }
 
-        var message = update.Message;
+        if (update.Type == UpdateType.Message && update.Message?.Text != null)
+        {
+            await HandleMessageAsync(update.Message, cancellationToken);
+            return;
+        }
+    }
+
+    private async Task HandleMessageAsync(Message message, CancellationToken cancellationToken)
+    {
         var chatId = message.Chat.Id;
         var text = message.Text;
         var adminId = options.Value.AdminTelegramId;
@@ -59,7 +70,16 @@ public class BotUpdateHandler(
                     if (text == "/start" || text == "/help")
                     {
                         await botClient.SendMessage(chatId,
-                            "👋 Привіт, адміне!\n\nДоступні команди:\n/set_program — задати програму тренувань\n/cancel — скасувати поточний діалог",
+                            "👋 Привіт, адміне!\n\nДоступні команди:\n/my_athletes — view active athletes\n/set_program — задати програму тренувань\n/cancel — скасувати поточний діалог",
+                            cancellationToken: cancellationToken);
+                    }
+                    else if (text == "/my_athletes")
+                    {
+                        var keyboard = await athleteMenuBuilder.BuildStudentListAsync(adminId, cancellationToken);
+                        await botClient.SendMessage(
+                            chatId: chatId,
+                            text: "📋 Your Active Athletes:",
+                            replyMarkup: keyboard,
                             cancellationToken: cancellationToken);
                     }
                     else if (text == "/set_program")
@@ -74,34 +94,16 @@ public class BotUpdateHandler(
                     {
                         var draft = new WorkoutDraft { AthleteId = athleteId };
                         stateService.SetDraft(adminId, draft);
-                        stateService.SetState(adminId, AdminDialogState.WaitingForDayOfWeek);
-                        await botClient.SendMessage(chatId, "Enter Day of Week (1 for Monday, 7 for Sunday):", cancellationToken: cancellationToken);
+                        stateService.SetState(adminId, AdminDialogState.AwaitingWorkoutInput);
+                        await botClient.SendMessage(chatId, "🎯 Athlete selected! Now, please enter the workout text (e.g. Squats 3x10).", cancellationToken: cancellationToken);
                     }
                     else
                     {
-                        await botClient.SendMessage(chatId, "Invalid ID format. Please enter numbers only.", cancellationToken: cancellationToken);
+                        await botClient.SendMessage(chatId, "❌ Invalid ID format. Please enter numbers only.", cancellationToken: cancellationToken);
                     }
                     break;
 
-                case AdminDialogState.WaitingForDayOfWeek:
-                    if (int.TryParse(text, out var day) && day is >= 1 and <= 7)
-                    {
-                        var draft = stateService.GetDraft(adminId);
-                        if (draft != null)
-                        {
-                            draft.DayOfWeek = day;
-                            stateService.SetDraft(adminId, draft);
-                            stateService.SetState(adminId, AdminDialogState.WaitingForExercisesList);
-                            await botClient.SendMessage(chatId, "Enter exercises list (e.g., Squats 3x10):", cancellationToken: cancellationToken);
-                        }
-                    }
-                    else
-                    {
-                        await botClient.SendMessage(chatId, "Invalid day. Enter a number from 1 to 7.", cancellationToken: cancellationToken);
-                    }
-                    break;
-
-                case AdminDialogState.WaitingForExercisesList:
+                case AdminDialogState.AwaitingWorkoutInput:
                     var finalDraft = stateService.GetDraft(adminId);
                     if (finalDraft != null)
                     {
@@ -112,51 +114,53 @@ public class BotUpdateHandler(
                         {
                             var exerciseDtos = parser.Parse(text);
 
-                            var integrationEvent = new WorkoutCreatedEvent
+                            if (exerciseDtos.Count == 0)
                             {
-                                AthleteId = finalDraft.AthleteId,
-                                DayOfWeek = finalDraft.DayOfWeek,
-                                Exercises = exerciseDtos
-                            };
+                                await botClient.SendMessage(
+                                    chatId,
+                                    "❌ Invalid format. Please use: [Exercise Name] [Sets]x[Reps]",
+                                    cancellationToken: cancellationToken
+                                );
+                                // Do not clear state, allow retry
+                                break;
+                            }
 
-                            var jsonPayload = JsonSerializer.Serialize(integrationEvent);
-                            var subscriber = redisMultiplexer.GetSubscriber();
+                            var result = await apiClient.AssignWorkoutAsync(finalDraft.AthleteId, exerciseDtos, cancellationToken);
 
-                            logger.LogInformation("Publishing WorkoutCreatedEvent {EventId} to Redis for user {UserId}", integrationEvent.EventId, adminId);
-
-                            await subscriber.PublishAsync(
-                                RedisChannel.Literal("workout_channel"),
-                                new RedisValue(jsonPayload)
-                            );
-
-                            await botClient.SendMessage(
-                                chatId,
-                                "Вашу програму тренувань прийнято та надіслано на обробку сервером!",
-                                cancellationToken: cancellationToken
-                            );
-                        }
-                        catch (RedisException redisEx)
-                        {
-                            logger.LogError(redisEx, "Redis transport failure while publishing workout for user {UserId}", adminId);
-                            await botClient.SendMessage(
-                                chatId,
-                                "Вибачте, сталася помилка зв'язку з брокером повідомлень (Redis). Ми спробуємо обробити її пізніше.",
-                                cancellationToken: cancellationToken
-                            );
+                            if (result.IsSuccess)
+                            {
+                                await botClient.SendMessage(
+                                    chatId,
+                                    "💪 Workout successfully assigned!",
+                                    cancellationToken: cancellationToken
+                                );
+                                stateService.ClearState(adminId);
+                            }
+                            else
+                            {
+                                logger.LogError("Failed to assign workout for user {UserId}: {Error}", adminId, result.Error);
+                                await botClient.SendMessage(
+                                    chatId,
+                                    $"⚠️ Could not assign workout: {result.Error}",
+                                    cancellationToken: cancellationToken
+                                );
+                            }
                         }
                         catch (Exception ex)
                         {
                             logger.LogError(ex, "Unexpected error compiling exercises draft for user {UserId}", adminId);
                             await botClient.SendMessage(
                                 chatId,
-                                "Сталася критична помилка під час обробки вашої програми.",
+                                "❌ A critical error occurred while processing your workout program.",
                                 cancellationToken: cancellationToken
                             );
-                        }
-                        finally
-                        {
                             stateService.ClearState(adminId);
                         }
+                    }
+                    else
+                    {
+                        stateService.ClearState(adminId);
+                        await botClient.SendMessage(chatId, "❌ Dialog session expired. Please start over.", cancellationToken: cancellationToken);
                     }
                     break;
             }
@@ -165,6 +169,59 @@ public class BotUpdateHandler(
         {
             logger.LogError(ex, "Error processing update");
             await botClient.SendMessage(chatId, "Server error.", cancellationToken: cancellationToken);
+        }
+    }
+
+    private async Task HandleCallbackQueryAsync(CallbackQuery callbackQuery, CancellationToken cancellationToken)
+    {
+        var adminId = options.Value.AdminTelegramId;
+
+        if (callbackQuery.Data?.StartsWith("select_student:") == true)
+        {
+            var idPart = callbackQuery.Data.Substring("select_student:".Length);
+
+            if (callbackQuery.From.Id != adminId)
+            {
+                await botClient.AnswerCallbackQuery(callbackQuery.Id, "Access denied.", cancellationToken: cancellationToken);
+                return;
+            }
+
+            if (long.TryParse(idPart, out var athleteTelegramId))
+            {
+                var currentState = stateService.GetState(adminId);
+                
+                if (currentState == AdminDialogState.None)
+                {
+                    var draft = new WorkoutDraft { AthleteId = athleteTelegramId };
+                    stateService.SetDraft(adminId, draft);
+                    
+                    stateService.SetState(adminId, AdminDialogState.AwaitingWorkoutInput);
+
+                    await botClient.AnswerCallbackQuery(
+                        callbackQueryId: callbackQuery.Id,
+                        text: "Athlete Selected!",
+                        cancellationToken: cancellationToken);
+
+                    await botClient.SendMessage(
+                        chatId: callbackQuery.Message?.Chat.Id ?? adminId,
+                        text: "🎯 Athlete selected! Now, please enter the workout text (e.g. Squats 3x10).",
+                        cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    await botClient.AnswerCallbackQuery(
+                        callbackQueryId: callbackQuery.Id,
+                        text: "You are already in a dialog. Cancel it first.",
+                        cancellationToken: cancellationToken);
+                }
+            }
+            else
+            {
+                await botClient.AnswerCallbackQuery(
+                    callbackQueryId: callbackQuery.Id,
+                    text: "Invalid callback data.",
+                    cancellationToken: cancellationToken);
+            }
         }
     }
 
