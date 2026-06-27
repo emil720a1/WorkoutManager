@@ -4,6 +4,5 @@ public enum AdminDialogState
 {
     None,
     WaitingForAthleteTelegramId,
-    WaitingForDayOfWeek,
-    WaitingForExercisesList
+    AwaitingWorkoutInput
 }
