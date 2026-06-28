@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace WorkoutManager.Contracts;
 
 public sealed record WorkoutNotificationEvent(
+    Guid WorkoutId,
     long AthleteTelegramId,
     string AthleteName,
     IReadOnlyList<ExerciseNotificationDto> Exercises)

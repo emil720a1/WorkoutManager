@@ -176,6 +176,47 @@ public class BotUpdateHandler(
     {
         var adminId = options.Value.AdminTelegramId;
 
+        if (callbackQuery.Data?.StartsWith("complete_workout_") == true)
+        {
+            var idPart = callbackQuery.Data.Substring("complete_workout_".Length);
+            
+            if (Guid.TryParse(idPart, out var workoutId))
+            {
+                var result = await apiClient.MarkWorkoutCompletedAsync(workoutId, cancellationToken);
+                if (result.IsSuccess)
+                {
+                    await botClient.EditMessageText(
+                        chatId: callbackQuery.Message!.Chat.Id,
+                        messageId: callbackQuery.Message.MessageId,
+                        text: callbackQuery.Message.Text + "\n\n🎉 Workout marked as completed!",
+                        replyMarkup: null,
+                        cancellationToken: cancellationToken);
+                        
+                    await botClient.AnswerCallbackQuery(
+                        callbackQueryId: callbackQuery.Id,
+                        text: "Great job! Keep it up!",
+                        cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    await botClient.AnswerCallbackQuery(
+                        callbackQueryId: callbackQuery.Id,
+                        text: "Failed to mark as completed. Try again later.",
+                        showAlert: true,
+                        cancellationToken: cancellationToken);
+                }
+            }
+            else
+            {
+                await botClient.AnswerCallbackQuery(
+                    callbackQueryId: callbackQuery.Id,
+                    text: "Invalid workout ID.",
+                    cancellationToken: cancellationToken);
+            }
+            
+            return;
+        }
+
         if (callbackQuery.Data?.StartsWith("select_student:") == true)
         {
             var idPart = callbackQuery.Data.Substring("select_student:".Length);
