@@ -47,6 +47,25 @@ public class WorkoutApiClient(HttpClient httpClient, ILogger<WorkoutApiClient> l
         }
     }
 
+    public async Task<UnitResult<string>> MarkWorkoutCompletedAsync(Guid workoutId, CancellationToken ct)
+    {
+        try
+        {
+            var response = await httpClient.PatchAsync($"/api/v1/workouts/{workoutId}/status", null, ct);
+            
+            if (response.IsSuccessStatusCode)
+                return UnitResult.Success<string>();
+            
+            var error = await response.Content.ReadAsStringAsync(ct);
+            return UnitResult.Failure<string>(error);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "HTTP request to mark workout as completed failed");
+            return UnitResult.Failure<string>("Network error occurred while updating workout status.");
+        }
+    }
+
     public async Task<Result<WorkoutResponseDto, string>> GetTodayWorkoutAsync(long telegramId, CancellationToken ct)
     {
         try

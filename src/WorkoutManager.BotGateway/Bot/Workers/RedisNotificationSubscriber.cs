@@ -10,6 +10,7 @@ using Polly.Retry;
 using StackExchange.Redis;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
+using Telegram.Bot.Types.ReplyMarkups;
 using WorkoutManager.Contracts;
 
 namespace WorkoutManager.BotGateway.Bot.Workers;
@@ -70,12 +71,16 @@ public class RedisNotificationSubscriber : BackgroundService
                 {
                     text += $"- {ex.Name}: {ex.Sets} x {ex.Reps}\n";
                 }
+                var keyboard = new InlineKeyboardMarkup(
+                    InlineKeyboardButton.WithCallbackData("✅ Mark as Completed", $"complete_workout_{eventData.WorkoutId}")
+                );
                 
                 await _resiliencePipeline.ExecuteAsync(async token =>
                 {
                     await _botClient.SendMessage(
                         chatId: eventData.AthleteTelegramId,
                         text: text,
+                        replyMarkup: keyboard,
                         cancellationToken: token);
                 }, stoppingToken);
                     

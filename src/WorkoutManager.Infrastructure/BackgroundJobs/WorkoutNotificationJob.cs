@@ -55,6 +55,7 @@ public class WorkoutNotificationJob(
                     .Where(p => p.Id == a.CurrentProgramId)
                     .SelectMany(p => p.Days.Where(d => d.DayNumber == currentDay))
                     .Select(d => new WorkoutNotificationEvent(
+                        Guid.NewGuid(), // TODO: Replace with actual WorkoutSession/Log ID when implemented
                         a.TelegramId,
                         a.Name,
                         d.Exercises.Select(e => new ExerciseNotificationDto(
