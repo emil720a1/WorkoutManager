@@ -11,7 +11,7 @@ public class ExerciseParser
     {
         var exercises = new List<Exercise>();
         var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var regex = new Regex(@"^(.*?)\s+(\d+)[x*](\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        var regex = new Regex(@"^(.*?)\s+(\d+)\s*[x*]\s*(\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         foreach (var line in lines)
         {

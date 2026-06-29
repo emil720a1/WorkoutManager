@@ -10,6 +10,8 @@ public interface IApplicationDbContext
     DbSet<Program> Programs { get; }
     DbSet<WorkoutDay> WorkoutDays { get; }
     DbSet<Exercise> Exercises { get; }
+    DbSet<Workout> Workouts { get; }
+    DbSet<AthleteStats> AthleteStats { get; }
     
     DatabaseFacade Database { get; }
     

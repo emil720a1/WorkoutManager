@@ -11,6 +11,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Program> Programs => Set<Program>();
     public DbSet<WorkoutDay> WorkoutDays => Set<WorkoutDay>();
     public DbSet<Exercise> Exercises => Set<Exercise>();
+    public DbSet<Workout> Workouts => Set<Workout>();
+    public DbSet<AthleteStats> AthleteStats => Set<AthleteStats>();
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
