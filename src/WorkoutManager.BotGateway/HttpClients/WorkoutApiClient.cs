@@ -47,7 +47,7 @@ public class WorkoutApiClient(HttpClient httpClient, ILogger<WorkoutApiClient> l
         }
     }
 
-    public async Task<UnitResult<string>> MarkWorkoutCompletedAsync(Guid workoutId, CancellationToken ct)
+    public virtual async Task<UnitResult<string>> MarkWorkoutCompletedAsync(Guid workoutId, CancellationToken ct)
     {
         try
         {

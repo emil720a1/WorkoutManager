@@ -9,6 +9,8 @@
     <Project Path="src/WorkoutManager.WorkoutAPI/WorkoutManager.WorkoutAPI.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/WorkoutManager.API.IntegrationTests/WorkoutManager.API.IntegrationTests.csproj" />
     <Project Path="tests/WorkoutManager.Application.Tests/WorkoutManager.Application.Tests.csproj" />
+    <Project Path="tests/WorkoutManager.BotGateway.Tests/WorkoutManager.BotGateway.Tests.csproj" />
   </Folder>
 </Solution>
